@@ -1045,14 +1045,24 @@ class BotHandler:
         medicina_prepagada = min(medicina_prepagada, MEDICINA_PREPAGADA_COP_ANUAL)
         intereses_icetex   = min(intereses_icetex,   ICETEX_COP)
 
-        # Dependientes (art. 387 ET)
-        num_dep        = min(int(dat.get("num_dependientes", 0)), DEPENDIENTES_MAX_PERSONAS)
-        dep_porcentaje = min(
+        # Dependientes (art. 387 ET + casillas 39 y 139 del formulario 210)
+        #
+        # DOS componentes separados desde 2023:
+        # Componente A → c39 (DENTRO del limite global 40%/1340 UVT):
+        #   10% renta laboral mensual, max 32 UVT/mes
+        # Componente B → c139 (FUERA del limite global, adicion directa a c92):
+        #   72 UVT adicionales por dependiente, max 4
+        #   Solo si hay rentas de trabajo (c42+c57 > 0)
+        #   PDF cas.139 pag.18: c92 = c41+c53+c69+c86+c28+c139
+        num_dep = min(int(dat.get("num_dependientes", 0)), DEPENDIENTES_MAX_PERSONAS)
+
+        # c39: 10% mensual (dentro del limite global)
+        dep_deducc_c39 = min(
             r.ingresos_laborales * DEPENDIENTES_PORCENTAJE_MES,
             DEPENDIENTES_MAX_COP_MES * 12,
         )
-        dep_adicional        = num_dep * (DEPENDIENTES_UVT_POR_PERSONA * UVT)
-        dependientes_deducc  = dep_porcentaje + dep_adicional
+        # c139: 72 UVT/persona adicionales (fuera del limite global)
+        dep_adicional_c139 = num_dep * (DEPENDIENTES_UVT_POR_PERSONA * UVT)
 
         # GMF
         gmf_deducible = r.gmf_pagado * GMF_PORCENTAJE_DEDUCIBLE
@@ -1069,7 +1079,8 @@ class BotHandler:
         c36 = min(c34 * EXENTA_25_PORCENTAJE, EXENTA_25_COP)
         c37 = c35 + c36
         c38 = intereses_vivienda
-        c39 = medicina_prepagada + dependientes_deducc + intereses_icetex + gmf_deducible
+        # c39: sin los 72 UVT/persona (esos van a c139 fuera del limite)
+        c39 = medicina_prepagada + dep_deducc_c39 + intereses_icetex + gmf_deducible
         c40 = c38 + c39
 
         ingreso_neto = max(0.0,
@@ -1088,24 +1099,44 @@ class BotHandler:
         c58 = r.ingresos_capital
         c73 = max(0.0, c58)
 
-        renta_liq_general = c42 + c57 + c73 + c90
+        # cas91 formulario = renta liquida cedula general (c41+c42+c57+c73+c90)
+        renta_liq_cedula_gral = c42 + c57 + c73 + c90
 
-        # Pensiones obligatorias
-        c91            = r.ingresos_pensiones
-        mesada_mensual = c91 / 12 if c91 > 0 else 0
-        c95 = c91 if mesada_mensual <= PENSION_EXENTA_COP_MES else min(c91 * 0.25, EXENTA_25_COP)
-        c99 = max(0.0, c91 - c95)
+        # c139: tope = c42+c57 (no puede superar rentas de trabajo)
+        c139 = min(dep_adicional_c139, c42 + c57)
+
+        # c92 = c41 + c139 (simplificado perfil asalariado; sin c28 factura electronica)
+        c92 = c41 + c139
+
+        # c93 = renta liquida ordinaria cedula general
+        c93 = max(0.0, renta_liq_cedula_gral - c92)
+
+        # CEDULA DE PENSIONES (casillas 99-103 del formulario)
+        cas99          = r.ingresos_pensiones
+        mesada_mensual = cas99 / 12 if cas99 > 0 else 0
+        cas102 = (
+            cas99
+            if mesada_mensual <= PENSION_EXENTA_COP_MES
+            else min(cas99 * 0.25, EXENTA_25_COP)
+        )
+        cas103 = max(0.0, cas99 - cas102)
 
         c100 = r.dividendos
 
-        base_uvt  = renta_liq_general / UVT
-        c125      = self._calcular_impuesto(base_uvt)
+        # Impuesto: base = c93 (cedula general) + cas103 (pensiones)
+        base_uvt_gral     = c93 / UVT
+        impuesto_gral     = self._calcular_impuesto(base_uvt_gral)
+        base_uvt_pension  = cas103 / UVT
+        impuesto_pensiones = self._calcular_impuesto(base_uvt_pension)
+
         c116      = r.retenciones_trabajo
         c117      = r.retenciones_capital
         c118      = r.retenciones_no_laborales
         c119      = r.retenciones_pensiones
         total_ret = c116 + c117 + c118 + c119
-        saldo     = c125 - total_ret
+
+        c121  = impuesto_gral + impuesto_pensiones
+        saldo = c121 - total_ret
 
         return {
             "c29_patrimonio_bruto":         r.saldos_cuentas + r.inversiones + r.otros_activos + saldo_patrimonio,
@@ -1118,7 +1149,7 @@ class BotHandler:
             "c37_total_exentas":            c37,
             "c38_ded_vivienda":             c38,
             "c39_otras_ded":                c39,
-            "c39_det_dependientes":         dependientes_deducc,
+            "c39_det_dep_10pct":            dep_deducc_c39,
             "c39_det_num_dependientes":     num_dep,
             "c39_det_medicina":             medicina_prepagada,
             "c39_det_icetex":               intereses_icetex,
@@ -1133,13 +1164,18 @@ class BotHandler:
             "c74_ing_no_lab":               c74,
             "c74_det_pensiones_vol_grav":   pensiones_vol_gravadas,
             "c90_renta_liq_no_lab":         c90,
-            "c91_ing_pensiones":            c91,
-            "c95_exenta_pension":           c95,
-            "c99_renta_grav_pension":       c99,
+            "c91_renta_liq_cedula_gral":    renta_liq_cedula_gral,
+            "c92_rentas_exentas_lim":       c92,
+            "c139_dep_adicionales":         c139,
+            "c93_renta_liq_ord_cedula":     c93,
+            "cas99_ing_pensiones":          cas99,
+            "cas102_exenta_pension":        cas102,
+            "cas103_renta_grav_pension":    cas103,
             "c100_dividendos":              c100,
-            "renta_liq_general":            renta_liq_general,
-            "base_impuesto_uvt":            round(base_uvt, 2),
-            "c125_impuesto":                c125,
+            "impuesto_cedula_gral":         impuesto_gral,
+            "impuesto_pensiones":           impuesto_pensiones,
+            "c121_total_impuesto":          c121,
+            "base_impuesto_uvt":            round(base_uvt_gral, 2),
             "c116_ret_trabajo":             c116,
             "c117_ret_capital":             c117,
             "c118_ret_no_lab":              c118,
