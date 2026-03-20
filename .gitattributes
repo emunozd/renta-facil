@@ -1,0 +1,4 @@
+# Desde la raíz del proyecto en PowerShell
+echo "* text=auto eol=lf" > .gitattributes
+git add .gitattributes
+git commit -m "chore: enforce LF line endings"

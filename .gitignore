@@ -1,0 +1,44 @@
+# Entorno virtual
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Variables de entorno
+.env
+
+# Datos en tiempo de ejecución (viven en /data/renta-facil, fuera del repo)
+data/
+*.db
+*.sqlite3
+.pdf_hash.json
+
+# ChromaDB
+chroma/
+
+# Archivos temporales de procesamiento
+*.tmp
+*.zip
+*.xlsx
+*.xls
+*.pdf
+
+# Logs
+*.log
+logs/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Docker
+*.env.local

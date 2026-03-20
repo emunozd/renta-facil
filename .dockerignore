@@ -1,0 +1,13 @@
+# No incluir en la imagen Docker
+data/
+.env
+.env.example
+__pycache__/
+*.pyc
+*.pyo
+.pdf_hash.json
+*.db
+*.zip
+.git/
+.gitignore
+README.md
