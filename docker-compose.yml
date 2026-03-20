@@ -32,6 +32,8 @@ services:
 
       # Limites
       - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-20}
+      # Zona horaria
+      - TZ=America/Bogota
 
     volumes:
       # /data/renta-facil del host → /data/renta-facil del contenedor
