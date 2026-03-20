@@ -24,6 +24,7 @@ import logging
 import os
 import re
 import tempfile
+import time
 
 from telegram import Update
 from telegram.ext import (
@@ -39,6 +40,7 @@ from interfaces.base import (
 from config.constants import (
     EstadoBot, MSG_BIENVENIDA, MSG_ERROR_ARCHIVO,
     ANNO_GRAVABLE, UVT, PASO_ZIP, TOTAL_PASOS,
+    SESSION_TIMEOUT_HORAS, MSG_SESSION_EXPIRADA, MSG_CANCELADO,
     # Mensajes por paso
     MSG_P3_DEPENDIENTES, MSG_P3_CUANTOS,
     MSG_P4_HIPOTECA, MSG_P4_SI,
@@ -224,6 +226,14 @@ class BotHandler:
             return
 
         doc = update.message.document
+        # Verificar sesion activa y timeout
+        if not await self._verificar_sesion_activa(update, sesion):
+            return
+
+        # Actualizar timestamp de actividad
+        sesion.ultima_actividad = time.time()
+        self._sessions.guardar(sesion)
+
         mb  = doc.file_size / (1024 * 1024)
         if mb > self._settings.max_file_size_mb:
             await update.message.reply_text(
@@ -862,6 +872,67 @@ class BotHandler:
     # ------------------------------------------------------------------
     # Router de texto — segun estado y ultima_pregunta
     # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Verificaciones previas a cualquier mensaje
+    # ------------------------------------------------------------------
+    async def _verificar_sesion_activa(
+        self, update: Update, sesion
+    ) -> bool:
+        """
+        Retorna True si la sesion esta activa y no ha expirado.
+        Si expiro o el estado es terminal, notifica al usuario y retorna False.
+        """
+        if not sesion:
+            await update.message.reply_text("Usa /start para iniciar.")
+            return False
+
+        # Sesion en estado terminal — no hay nada que verificar
+        if sesion.estado in (EstadoBot.FINALIZADO, EstadoBot.NO_OBLIGADO):
+            return True
+
+        # Verificar timeout
+        horas_inactivo = (time.time() - sesion.ultima_actividad) / 3600
+        if horas_inactivo >= SESSION_TIMEOUT_HORAS:
+            self._sessions.eliminar(sesion.chat_id)
+            await update.message.reply_text(MSG_SESSION_EXPIRADA)
+            return False
+
+        return True
+
+    async def _es_cancelacion(self, texto: str) -> bool:
+        """
+        Usa el LLM para detectar si el usuario quiere cancelar el proceso,
+        independientemente de como lo escriba.
+        Ejemplos: 'para', 'cancela', 'no quiero seguir', 'dejalo', 'olvídalo',
+                  'ya no', 'salir', 'bye', 'cancelar', 'detener', etc.
+        """
+        # Chequeo rapido por palabras obvias antes de llamar al LLM
+        palabras_obvias = {
+            "cancelar", "cancel", "cancela", "para", "parar", "parate",
+            "detener", "detente", "salir", "exit", "stop", "bye",
+            "adios", "chao", "no quiero", "olvida", "olvidalo", "dejalo",
+            "ya no", "no mas", "no sigo", "terminar",
+        }
+        texto_lower = texto.lower().strip()
+        if any(p in texto_lower for p in palabras_obvias):
+            return True
+
+        # Para textos ambiguos, consultar al LLM
+        if len(texto_lower) > 3:
+            prompt = (
+                f"El usuario escribio: '{texto}'\n"
+                "Quiere cancelar o detener el proceso actual? "
+                "Responde SOLO con SI o NO."
+            )
+            respuesta = self._ai.completar(
+                mensajes=[{"role": "user", "content": prompt}],
+                system_prompt="Eres un clasificador. Responde SOLO con SI o NO.",
+            )
+            if not respuesta.error:
+                return "SI" in respuesta.texto.upper()
+
+        return False
+
     async def _manejar_texto(
         self, update: Update, ctx: ContextTypes.DEFAULT_TYPE
     ):
@@ -869,9 +940,23 @@ class BotHandler:
         texto   = update.message.text.strip()
         sesion  = self._sessions.obtener(chat_id)
 
-        if not sesion:
-            await update.message.reply_text("Usa /start para iniciar.")
+        # Verificar sesion activa y timeout
+        if not await self._verificar_sesion_activa(update, sesion):
             return
+
+        # Actualizar timestamp de actividad
+        sesion.ultima_actividad = time.time()
+
+        # Detectar cancelacion en cualquier punto del flujo
+        # (excepto en la etapa de revision libre donde puede preguntar de todo)
+        if sesion.estado not in (EstadoBot.REVISION, EstadoBot.FINALIZADO,
+                                  EstadoBot.NO_OBLIGADO):
+            if await self._es_cancelacion(texto):
+                self._sessions.eliminar(chat_id)
+                await update.message.reply_text(MSG_CANCELADO)
+                return
+
+        self._sessions.guardar(sesion)
 
         ultima = sesion.ultima_pregunta
 

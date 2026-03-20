@@ -6,6 +6,7 @@ Principio D de SOLID.
 """
 from abc import ABC, abstractmethod
 from typing import Any, Optional
+import time
 from dataclasses import dataclass, field
 
 
@@ -85,6 +86,7 @@ class SesionUsuario:
     historial_mensajes: list = field(default_factory=list)     # para contexto IA
     paso_actual: int = 0
     ultima_pregunta: str = ""
+    ultima_actividad: float = field(default_factory=time.time)  # timestamp Unix
 
 
 @dataclass

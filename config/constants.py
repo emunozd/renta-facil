@@ -199,12 +199,13 @@ MSG_P4_HIPOTECA = (
 )
 
 MSG_P4_SI = (
-    "Perfecto. Descarga el certificado de intereses desde la app o pagina "
-    "web de tu banco, en la seccion Certificados -> Declaracion de renta {anno}.\n\n"
-    "Guardalo con el nombre:\n"
+    "Perfecto. Descargalo desde la app o pagina web de tu banco,\n"
+    "seccion Certificados -> Declaracion de renta {anno}.\n\n"
+    "Cuando lo tengas, renombralo exactamente asi:\n"
     "  certificado_hipoteca_NOMBRE_BANCO.pdf\n"
-    "(reemplaza NOMBRE_BANCO por el nombre real, ejemplo: certificado_hipoteca_DAVIVIENDA.pdf)\n\n"
-    "Tenlo a mano para el Paso {paso_zip}."
+    "Ejemplo: certificado_hipoteca_DAVIVIENDA.pdf\n\n"
+    "Tenlo listo para el Paso {paso_zip}.\n\n"
+    "Escribe 'cancelar' en cualquier momento para detener el proceso."
 )
 
 MSG_P5_MEDICINA = (
@@ -214,13 +215,12 @@ MSG_P5_MEDICINA = (
 )
 
 MSG_P5_SI = (
-    "Solicita el certificado directamente a tu entidad de salud. "
-    "Normalmente lo encuentras en su pagina web o app en la seccion "
-    "Certificados o Documentos tributarios.\n\n"
-    "Guardalo con el nombre:\n"
+    "Solicítalo en la pagina web o app de tu entidad de salud,\n"
+    "seccion Certificados o Documentos tributarios.\n\n"
+    "Cuando lo tengas, renombralo exactamente asi:\n"
     "  certificado_medicina_NOMBRE_ENTIDAD.pdf\n"
-    "(ejemplo: certificado_medicina_COLSANITAS.pdf)\n\n"
-    "Tenlo a mano para el Paso {paso_zip}."
+    "Ejemplo: certificado_medicina_COLSANITAS.pdf\n\n"
+    "Tenlo listo para el Paso {paso_zip}."
 )
 
 MSG_P6_AFC = (
@@ -230,12 +230,12 @@ MSG_P6_AFC = (
 )
 
 MSG_P6_SI = (
-    "Descarga el certificado desde la app o pagina web de tu banco o fondo, "
-    "en la seccion Certificados -> Declaracion de renta {anno}.\n\n"
-    "Guardalo con el nombre:\n"
+    "Descargalo desde la app o pagina web de tu banco o fondo,\n"
+    "seccion Certificados -> Declaracion de renta {anno}.\n\n"
+    "Cuando lo tengas, renombralo exactamente asi:\n"
     "  certificado_afc_NOMBRE_ENTIDAD.pdf\n"
-    "(ejemplo: certificado_afc_DAVIVIENDA.pdf o certificado_afc_PORVENIR.pdf)\n\n"
-    "Tenlo a mano para el Paso {paso_zip}."
+    "Ejemplo: certificado_afc_DAVIVIENDA.pdf o certificado_afc_PORVENIR.pdf\n\n"
+    "Tenlo listo para el Paso {paso_zip}."
 )
 
 MSG_P7_PENSIONES_VOL = (
@@ -245,13 +245,12 @@ MSG_P7_PENSIONES_VOL = (
 )
 
 MSG_P7_SI = (
-    "Solicita el certificado a tu fondo. El documento debe incluir "
-    "las fechas en que hiciste los aportes y los montos de cualquier "
-    "retiro que hayas hecho durante el ano.\n\n"
-    "Guardalo con el nombre:\n"
+    "Solicítalo a tu fondo. El documento debe incluir las fechas de aportes\n"
+    "y los montos de cualquier retiro que hayas hecho durante el ano.\n\n"
+    "Cuando lo tengas, renombralo exactamente asi:\n"
     "  certificado_pensiones_voluntarias_NOMBRE_FONDO.pdf\n"
-    "(ejemplo: certificado_pensiones_voluntarias_PORVENIR.pdf)\n\n"
-    "Tenlo a mano para el Paso {paso_zip}."
+    "Ejemplo: certificado_pensiones_voluntarias_PORVENIR.pdf\n\n"
+    "Tenlo listo para el Paso {paso_zip}."
 )
 
 MSG_P8_ICETEX = (
@@ -260,11 +259,11 @@ MSG_P8_ICETEX = (
 )
 
 MSG_P8_SI = (
-    "Descarga el certificado desde la pagina del ICETEX, "
-    "en la seccion Mi ICETEX -> Certificados.\n\n"
-    "Guardalo con el nombre:\n"
+    "Descargalo desde la pagina del ICETEX,\n"
+    "seccion Mi ICETEX -> Certificados.\n\n"
+    "Cuando lo tengas, renombralo exactamente asi:\n"
     "  certificado_icetex.pdf\n\n"
-    "Tenlo a mano para el Paso {paso_zip}."
+    "Tenlo listo para el Paso {paso_zip}."
 )
 
 
@@ -326,6 +325,24 @@ def msg_resumen_zip(
     )
 
     return "\n".join(lineas)
+
+
+# ─────────────────────────────────────────────────────────────
+# TIMEOUT Y CANCELACION
+# ─────────────────────────────────────────────────────────────
+SESSION_TIMEOUT_HORAS = 5  # sesion expira despues de N horas sin actividad
+
+MSG_SESSION_EXPIRADA = (
+    "Tu sesion expiro por inactividad (mas de 5 horas sin actividad).\n\n"
+    "No te preocupes, puedes empezar de nuevo cuando quieras con /start."
+)
+
+MSG_CANCELADO = (
+    "Proceso cancelado. Cuando quieras retomarlo usa /start."
+)
+
+# Aviso de cancelacion que se agrega al primer SI de cada paso
+AVISO_CANCELAR = "\n\nEscribe 'cancelar' en cualquier momento para detener el proceso."
 
 
 # ─────────────────────────────────────────────────────────────
