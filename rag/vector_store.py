@@ -136,6 +136,35 @@ class ChromaVectorStore(IVectorStore):
         except Exception:
             return 0
 
+    def guardar_hash(self, hash_val: str) -> None:
+        """Guarda el hash del PDF como metadata de la coleccion ChromaDB."""
+        self._inicializar()
+        # ChromaDB no permite modificar metadata de coleccion directamente,
+        # pero si podemos guardar un documento especial con id reservado
+        try:
+            self._collection.upsert(
+                ids=["__pdf_hash__"],
+                documents=[hash_val],
+                metadatas=[{"tipo": "hash_control"}],
+            )
+        except Exception as e:
+            logger.warning(f"No se pudo guardar hash en ChromaDB: {e}")
+
+    def obtener_hash(self) -> str | None:
+        """Recupera el hash guardado del PDF desde ChromaDB."""
+        self._inicializar()
+        try:
+            resultado = self._collection.get(ids=["__pdf_hash__"])
+            if resultado and resultado["documents"]:
+                return resultado["documents"][0]
+        except Exception:
+            pass
+        return None
+
+    def limpiar_preservando_interfaz(self) -> None:
+        """Alias de limpiar() — elimina todos los documentos incluido el hash."""
+        self.limpiar()
+
 
 # ─────────────────────────────────────────────────────────────
 # RAGService — orquesta indexacion + recuperacion

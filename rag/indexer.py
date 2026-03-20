@@ -16,9 +16,6 @@ from interfaces.base import IVectorStore, ChunkRAG
 
 logger = logging.getLogger(__name__)
 
-# Archivo donde se guarda el hash del PDF para detectar cambios
-_HASH_FILE = ".pdf_hash.json"
-
 # Secciones del Formulario 210 con sus casillas de referencia
 # Se usan para etiquetar cada chunk y mejorar la recuperacion
 _SECCIONES_210 = [
@@ -69,32 +66,62 @@ class Indexer:
         chunk_size: int = 600,
         chunk_overlap: int = 80,
     ) -> None:
-        self._store   = vector_store
-        self._pdf_path = pdf_path
+        self._store         = vector_store
+        self._pdf_path      = pdf_path
         self._chunk_size    = chunk_size
         self._chunk_overlap = chunk_overlap
-        self._hash_file = os.path.join(
-            os.path.dirname(pdf_path), _HASH_FILE
-        )
 
     # ------------------------------------------------------------------
     def necesita_reindexar(self) -> bool:
-        """True si el PDF cambio desde la ultima indexacion o no esta indexado."""
-        if self._store.contar() == 0:
-            logger.info("ChromaDB vacio, se requiere indexacion.")
+        """
+        True si el PDF cambio, ChromaDB esta vacio, o la indexacion
+        anterior fue interrumpida (apagado del host a mitad de proceso).
+
+        El hash se guarda DENTRO de ChromaDB como documento especial
+        con id "__pdf_hash__". Esto garantiza que hash e indice son
+        atomicos: si ChromaDB se borra o corrompe, el hash desaparece
+        con el y se re-indexa automaticamente. No hay dos fuentes de
+        verdad que se puedan desincronizar.
+
+        Casos:
+        - ChromaDB vacio → indexar
+        - ChromaDB con chunks pero sin hash → apagado a mitad → limpiar y re-indexar
+        - Hash no coincide con PDF actual → PDF cambio → re-indexar
+        - Todo consistente → no hacer nada
+        """
+        conteo       = self._store.contar()
+        hash_actual  = self._calcular_hash()
+
+        if conteo == 0:
+            logger.info("ChromaDB vacio — se requiere indexacion.")
             return True
 
-        hash_actual = self._calcular_hash()
-        hash_guardado = self._cargar_hash_guardado()
+        hash_guardado = self._store.obtener_hash()
+
+        if hash_guardado is None:
+            logger.warning(
+                "ChromaDB tiene datos pero no hay hash — "
+                "indexacion previa interrumpida. Limpiando y re-indexando."
+            )
+            self._store.limpiar()
+            return True
 
         if hash_actual != hash_guardado:
-            logger.info("PDF cambio (hash diferente), se requiere re-indexacion.")
+            logger.info("PDF cambio (hash diferente) — re-indexando.")
             return True
 
+        logger.info(f"Indice vigente ({conteo} chunks). No se requiere re-indexacion.")
         return False
 
     def indexar(self) -> None:
-        """Indexa el PDF del Formulario 210 desde cero."""
+        """
+        Indexa el PDF del Formulario 210 desde cero.
+
+        El hash se guarda SOLO al final, despues de que ChromaDB
+        confirmo la insercion exitosa. Si el proceso muere antes,
+        el hash no existe y al arrancar se detecta la indexacion
+        incompleta y se re-indexa limpio.
+        """
         if not os.path.exists(self._pdf_path):
             raise FileNotFoundError(
                 f"No se encontro el Formulario 210 en: {self._pdf_path}\n"
@@ -102,6 +129,10 @@ class Indexer:
             )
 
         logger.info(f"Iniciando indexacion de: {self._pdf_path}")
+
+        # Al limpiar ChromaDB se borra tambien el hash (esta dentro de la
+        # coleccion). Si el proceso muere a mitad, necesita_reindexar()
+        # detectara chunks sin hash y limpiara para empezar de nuevo.
 
         # Limpiar indexacion anterior
         self._store.limpiar()
@@ -121,10 +152,16 @@ class Indexer:
         # Insertar en ChromaDB
         self._store.insertar(chunks)
 
-        # Guardar hash para deteccion de cambios futuros
-        self._guardar_hash(self._calcular_hash())
+        # Guardar hash DENTRO de ChromaDB SOLO aqui, despues de la
+        # insercion exitosa. Hash e indice son atomicos: si ChromaDB
+        # se borra, el hash desaparece con el.
+        # Si el proceso muere antes de esta linea, necesita_reindexar()
+        # vera chunks sin hash y limpiara para empezar de nuevo.
+        self._store.guardar_hash(self._calcular_hash())
 
-        logger.info("Indexacion completada exitosamente.")
+        logger.info(
+            f"Indexacion completada: {len(chunks)} chunks indexados exitosamente."
+        )
 
     # ------------------------------------------------------------------
     def _extraer_texto_pdf(self) -> str:
@@ -302,16 +339,3 @@ class Indexer:
             for bloque in iter(lambda: f.read(65536), b""):
                 sha256.update(bloque)
         return sha256.hexdigest()
-
-    def _cargar_hash_guardado(self) -> Optional[str]:
-        if os.path.exists(self._hash_file):
-            try:
-                with open(self._hash_file) as f:
-                    return json.load(f).get("hash")
-            except Exception:
-                pass
-        return None
-
-    def _guardar_hash(self, hash_val: str) -> None:
-        with open(self._hash_file, "w") as f:
-            json.dump({"hash": hash_val, "pdf": self._pdf_path}, f)
