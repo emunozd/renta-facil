@@ -14,7 +14,7 @@ services:
       - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
 
       # Apunta al Qwen corriendo en el HOST (no dentro de Docker)
-      - AI_BASE_URL=http://host.docker.internal:8181
+      - AI_BASE_URL=${AI_BASE_URL:-http://host.docker.internal:8181}
       - AI_API_KEY=${AI_API_KEY:-}
       - AI_MODEL=${AI_MODEL:-mlx-community/Qwen3.5-35B-A3B-4bit}
       - AI_MAX_TOKENS=${AI_MAX_TOKENS:-4096}
