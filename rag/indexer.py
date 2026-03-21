@@ -224,7 +224,7 @@ class Indexer:
             for j, sub in enumerate(sub_chunks):
                 seccion = self._detectar_seccion(sub, num_casilla)
                 chunks.append(ChunkRAG(
-                    id=f"casilla_{num_casilla}_{j}",
+                    id=f"c{num_casilla}_{chunk_id}",
                     texto=sub,
                     seccion=seccion,
                     casillas=[num_casilla],
