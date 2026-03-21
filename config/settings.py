@@ -53,9 +53,9 @@ class Settings:
             ai_model=os.getenv("AI_MODEL", "mlx-community/Qwen3.5-35B-A3B-4bit"),
             ai_max_tokens=int(os.getenv("AI_MAX_TOKENS", "4096")),
             ai_timeout_seconds=int(os.getenv("AI_TIMEOUT_SECONDS", "120")),
-            chroma_persist_dir=os.getenv("CHROMA_PERSIST_DIR", "/data/renta-facil/chroma"),
+            chroma_persist_dir=os.getenv("CHROMA_PERSIST_DIR", "/var/lib/renta-facil/chroma"),
             pdf_formulario_path=os.getenv(
-                "PDF_FORMULARIO_PATH", "/data/renta-facil/formulario_210.pdf"
+                "PDF_FORMULARIO_PATH", "/var/lib/renta-facil/formulario_210.pdf"
             ),
             embedding_model=os.getenv(
                 "EMBEDDING_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
@@ -64,6 +64,6 @@ class Settings:
             rag_chunk_size=int(os.getenv("RAG_CHUNK_SIZE", "600")),
             rag_chunk_overlap=int(os.getenv("RAG_CHUNK_OVERLAP", "80")),
             pdf_watch_interval_seconds=int(os.getenv("PDF_WATCH_INTERVAL", "300")),
-            db_path=os.getenv("DB_PATH", "/data/renta-facil/sesiones.db"),
+            db_path=os.getenv("DB_PATH", "/var/lib/renta-facil/sesiones.db"),
             max_file_size_mb=int(os.getenv("MAX_FILE_SIZE_MB", "20")),
         )

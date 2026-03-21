@@ -19,7 +19,7 @@ LLM with RAG over the official DIAN PDF.
 
 ---
 
-## Directorio `/data/renta-facil`
+## Directorio `/var/lib/renta-facil`
 
 Vive fuera del proyecto. Aqui se almacenan el PDF, el indice vectorial y las
 sesiones de usuario.
@@ -31,22 +31,22 @@ sesiones de usuario.
 | `sesiones.db` | Auto-generado en la primera conversacion |
 
 ```bash
-sudo mkdir -p /data/renta-facil
-cp /ruta/al/formulario_210.pdf /data/renta-facil/formulario_210.pdf
+sudo mkdir -p /var/lib/renta-facil
+cp /ruta/al/formulario_210.pdf /var/lib/renta-facil/formulario_210.pdf
 ```
 
 ### Permisos
 
 **Sin Docker:**
 ```bash
-sudo chown -R $USER:$USER /data/renta-facil
-chmod 755 /data/renta-facil
-chmod 644 /data/renta-facil/formulario_210.pdf
+sudo chown -R $USER:$USER /var/lib/renta-facil
+chmod 755 /var/lib/renta-facil
+chmod 644 /var/lib/renta-facil/formulario_210.pdf
 ```
 
 **Con Docker:**
 ```bash
-sudo chmod 777 /data/renta-facil
+sudo chmod 777 /var/lib/renta-facil
 ```
 
 ---
@@ -57,9 +57,9 @@ sudo chmod 777 /data/renta-facil
 cp .env.example .env
 # Editar .env con TELEGRAM_TOKEN y AI_BASE_URL
 
-sudo mkdir -p /data/renta-facil
-sudo chmod 777 /data/renta-facil
-cp /ruta/al/formulario_210.pdf /data/renta-facil/formulario_210.pdf
+sudo mkdir -p /var/lib/renta-facil
+sudo chmod 777 /var/lib/renta-facil
+cp /ruta/al/formulario_210.pdf /var/lib/renta-facil/formulario_210.pdf
 
 docker compose up -d
 docker logs -f renta-facil
@@ -116,7 +116,7 @@ renta-facil/
 └── watchers/
     └── pdf_watcher.py      ← Re-indexa si el PDF cambia
 
-/data/renta-facil/          ← Fuera del proyecto, montar como volumen
+/var/lib/renta-facil/          ← Fuera del proyecto, montar como volumen
     formulario_210.pdf
     chroma/
     sesiones.db

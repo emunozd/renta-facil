@@ -11,7 +11,7 @@ __pycache__/
 # Variables de entorno
 .env
 
-# Datos en tiempo de ejecución (viven en /data/renta-facil, fuera del repo)
+# Datos en tiempo de ejecución (viven en /var/lib/renta-facil, fuera del repo)
 data/
 *.db
 *.sqlite3

@@ -26,8 +26,8 @@ COPY app.py       .
 COPY main.py      .
 COPY __init__.py  .
 
-# El directorio data/ lo provee el volumen en runtime
+# El directorio lo provee el volumen en runtime
 # Aqui solo creamos el punto de montaje
-RUN mkdir -p /data/renta-facil
+RUN mkdir -p /var/lib/renta-facil
 
 CMD ["python", "main.py"]

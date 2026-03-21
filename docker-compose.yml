@@ -21,9 +21,9 @@ services:
       - AI_TIMEOUT_SECONDS=${AI_TIMEOUT_SECONDS:-120}
 
       # Rutas DENTRO del contenedor (no cambiar)
-      - PDF_FORMULARIO_PATH=/data/renta-facil/formulario_210.pdf
-      - CHROMA_PERSIST_DIR=/data/renta-facil/chroma
-      - DB_PATH=/data/renta-facil/sesiones.db
+      - PDF_FORMULARIO_PATH=/var/lib/renta-facil/formulario_210.pdf
+      - CHROMA_PERSIST_DIR=/var/lib/renta-facil/chroma
+      - DB_PATH=/var/lib/renta-facil/sesiones.db
 
       # RAG
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
@@ -36,9 +36,9 @@ services:
       - TZ=America/Bogota
 
     volumes:
-      # /data/renta-facil del host → /data/renta-facil del contenedor
+      # /var/lib/renta-facil del host → /var/lib/renta-facil del contenedor
       # PDF, índice ChromaDB y sesiones.db viven aquí
-      - /data/renta-facil:/data/renta-facil
+      - /var/lib/renta-facil:/var/lib/renta-facil
 
     # Solo si quieres ver los logs con docker logs -f renta-facil
     logging:
