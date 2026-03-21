@@ -223,15 +223,19 @@ class ExogenaParser(IExogenaParser):
                 # Registrar pagadores laborales
                 if campo == "ingresos_laborales" and nit_pag and valor > 0:
                     if nit_pag not in pagadores:
-                        pagadores[nit_pag] = {"nombre": nom_pag, "valor": 0.0, "tipo": "trabajo_laboral"}
+                        pagadores[nit_pag] = {"nombre": nom_pag, "valor": 0.0, "retencion": 0.0, "tipo": "trabajo_laboral"}
                     pagadores[nit_pag]["valor"] += valor
+
+                # Acumular retenciones al pagador correspondiente
+                if campo == "retenciones_trabajo" and nit_pag and nit_pag in pagadores:
+                    pagadores[nit_pag]["retencion"] += valor
 
                 # Registrar entidades financieras
                 if campo in ("ingresos_capital", "retenciones_trabajo") and nit_pag:
                     entidades[nit_pag] = nom_pag
 
         resultado.pagadores = [
-            {"nombre": v["nombre"], "valor": v["valor"], "tipo": v["tipo"]}
+            {"nombre": v["nombre"], "valor": v["valor"], "retencion": 0.0, "tipo": v["tipo"]}
             for v in pagadores.values() if v["valor"] > 0
         ]
         resultado.entidades_financieras = [
