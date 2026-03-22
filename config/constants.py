@@ -163,10 +163,11 @@ PASO_MEDICINA            = 5
 PASO_AFC_FPV             = 6
 PASO_PENSIONES_VOL       = 7
 PASO_ICETEX              = 8
-PASO_RESUMEN_ZIP         = 9
-PASO_REVISION_DOCS       = 10
-PASO_BORRADOR            = 11
-TOTAL_PASOS              = 11
+PASO_EXTERIOR            = 9
+PASO_RESUMEN_ZIP         = 10
+PASO_REVISION_DOCS       = 11
+PASO_BORRADOR            = 12
+TOTAL_PASOS              = 12
 
 # Paso donde se sube el ZIP — referenciado en todos los mensajes de documentos
 PASO_ZIP = PASO_RESUMEN_ZIP
@@ -266,6 +267,32 @@ MSG_P8_SI = (
     "seccion Mi ICETEX -> Certificados.\n\n"
     "Cuando lo tengas, renombralo exactamente asi:\n"
     "  certificado_icetex.pdf\n\n"
+    "Tenlo listo para el Paso {paso_zip}."
+)
+
+MSG_P9_EXTERIOR = (
+    f"Paso {PASO_EXTERIOR} de {TOTAL_PASOS} — Activos o ingresos en el exterior\n\n"
+    "Tienes cuentas bancarias, inversiones o activos en el exterior?\n"
+    "Por ejemplo: cuentas en bancos extranjeros, acciones, ETFs, brokers como\n"
+    "Interactive Brokers, etc. (SI / NO)"
+)
+
+MSG_P9_EXTERIOR_CUANTOS = (
+    "Cuantos documentos del exterior tienes?\n"
+    "Por ejemplo: 1 certificado de Davivienda Panama + 1 de Interactive Brokers = 2\n\n"
+    "Responde con un numero."
+)
+
+MSG_P9_EXTERIOR_TIPO = (
+    "Documento {i} de {total}:\n\n"
+    "Es de un BANCO (cuenta de ahorros, CDT, cuenta corriente)\n"
+    "o de un BROKER/INVERSIONES (acciones, ETFs, dividendos)?\n\n"
+    "Responde BANCO o BROKER."
+)
+
+MSG_P9_EXTERIOR_NOMBRE = (
+    "Renombra ese documento exactamente asi:\n"
+    "  {nombre_archivo}\n\n"
     "Tenlo listo para el Paso {paso_zip}."
 )
 
@@ -374,14 +401,17 @@ class EstadoBot:
     PREGUNTA_MEDICINA       = "pregunta_medicina"          # Paso 5
     PREGUNTA_AFC            = "pregunta_afc"               # Paso 6
     PREGUNTA_PENSIONES_VOL  = "pregunta_pensiones_vol"     # Paso 7
-    PREGUNTA_ICETEX         = "pregunta_icetex"            # Paso 8
-    RESUMEN_ZIP             = "resumen_zip"                # Paso 9
-    ESPERANDO_ZIP           = "esperando_zip"
-    REVISANDO_DOCUMENTOS    = "revisando_documentos"       # Paso 10
-    CONFIRMANDO_DOCUMENTO   = "confirmando_documento"      # Paso 10
-    GENERANDO_BORRADOR      = "generando_borrador"         # Paso 11
-    REVISION                = "revision"
-    FINALIZADO              = "finalizado"
+    PREGUNTA_ICETEX           = "pregunta_icetex"              # Paso 8
+    PREGUNTA_EXTERIOR         = "pregunta_exterior"            # Paso 9
+    PREGUNTA_EXTERIOR_CUANTOS = "pregunta_exterior_cuantos"    # Paso 9b
+    PREGUNTA_EXTERIOR_TIPO    = "pregunta_exterior_tipo"       # Paso 9c
+    RESUMEN_ZIP               = "resumen_zip"                  # Paso 10
+    ESPERANDO_ZIP             = "esperando_zip"
+    REVISANDO_DOCUMENTOS      = "revisando_documentos"         # Paso 11
+    CONFIRMANDO_DOCUMENTO     = "confirmando_documento"        # Paso 11
+    GENERANDO_BORRADOR        = "generando_borrador"           # Paso 12
+    REVISION                  = "revision"
+    FINALIZADO                = "finalizado"
 
 
 # ─────────────────────────────────────────────────────────────

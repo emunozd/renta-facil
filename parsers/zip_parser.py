@@ -36,6 +36,8 @@ _PREFIJOS_TIPO = {
     "certificado_icetex":              "certificado_icetex",
     "certificado_dividendos":          "certificado_dividendos",
     "certificado_pensiones_voluntarias": "certificado_pensiones_voluntarias",
+    "certificado_exterior_banco":      "certificado_exterior_banco",
+    "certificado_exterior_broker":     "certificado_exterior_broker",
 }
 
 # Palabras clave en el contenido para deteccion de fallback
@@ -95,6 +97,8 @@ _CASILLAS_POR_TIPO = {
     "certificado_credito_hipotecario":   [38, 50, 66],
     "certificado_icetex":                [39, 51, 67],
     "certificado_dividendos":            [100, 101, 102],
+    "certificado_exterior_banco":        [29, 58],   # patrimonio + rentas capital
+    "certificado_exterior_broker":       [29, 109, 122],  # patrimonio + dividendos ext + descuento
 }
 
 

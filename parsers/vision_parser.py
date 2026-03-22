@@ -177,6 +177,50 @@ Si un valor no aparece en el documento, usa null.
 Los valores numericos deben ser en pesos colombianos sin puntos ni comas.
 """,
 
+    "certificado_exterior_banco": """
+Eres un extractor de datos tributarios. Analiza este certificado bancario
+de una entidad financiera del EXTERIOR (puede estar en ingles o espanol).
+Extrae UNICAMENTE estos valores. Responde SOLO con JSON valido, sin texto adicional.
+
+{
+  "nombre_banco": "<nombre del banco>",
+  "pais": "<pais donde esta el banco>",
+  "moneda": "<codigo de moneda: USD, EUR, etc.>",
+  "saldo_31_diciembre": <saldo total de todas las cuentas al 31-dic, numero o null>,
+  "intereses_generados": <total de intereses o rendimientos del año, numero o null>,
+  "anno_gravable": <año al que corresponde, numero o null>
+}
+
+IMPORTANTE:
+- Suma todos los saldos de todas las cuentas (ahorros, CDT, plazo fijo) para saldo_31_diciembre
+- Suma todos los intereses/rendimientos generados durante el año para intereses_generados
+- Los valores deben ser en la moneda original del certificado (NO conviertas a pesos)
+- Si un campo no aparece usa null
+""",
+
+    "certificado_exterior_broker": """
+Eres un extractor de datos tributarios. Analiza este documento de un broker
+o plataforma de inversiones del EXTERIOR (puede ser un Form 1042-S del IRS u otro).
+Extrae UNICAMENTE estos valores. Responde SOLO con JSON valido, sin texto adicional.
+
+{
+  "nombre_broker": "<nombre del broker>",
+  "pais": "<pais del broker>",
+  "moneda": "<codigo de moneda: USD, EUR, etc.>",
+  "tipo_ingreso": "<dividendos / intereses / ganancias_capital / otro>",
+  "ingreso_bruto": <monto bruto del ingreso, numero o null>,
+  "retencion_pagada": <impuesto retenido en el pais de origen, numero o null>,
+  "saldo_portafolio_31_diciembre": <valor del portafolio al 31-dic si aparece, numero o null>,
+  "income_code": "<codigo de tipo de ingreso si es Form 1042-S, ej: 06 para dividendos>",
+  "anno_gravable": <año al que corresponde, numero o null>
+}
+
+IMPORTANTE:
+- Para Form 1042-S: ingreso_bruto = casilla 2 (Gross income), retencion_pagada = casilla 7a
+- Los valores deben ser en la moneda original (NO conviertas a pesos)
+- Si un campo no aparece usa null
+""",
+
     "desconocido": """
 Eres un extractor de datos tributarios. Analiza este documento y extrae
 todos los valores monetarios relevantes para una declaracion de renta.

@@ -48,6 +48,8 @@ from config.constants import (
     MSG_P6_AFC,      MSG_P6_SI,
     MSG_P7_PENSIONES_VOL, MSG_P7_SI,
     MSG_P8_ICETEX,   MSG_P8_SI,
+    MSG_P9_EXTERIOR, MSG_P9_EXTERIOR_CUANTOS,
+    MSG_P9_EXTERIOR_TIPO, MSG_P9_EXTERIOR_NOMBRE,
     msg_resumen_zip,
     # Constantes de calculo
     UMBRAL_INGRESOS_COP, UMBRAL_PATRIMONIO_COP,
@@ -560,12 +562,119 @@ class BotHandler:
             sesion.datos_confirmados["tiene_icetex"] = False
             self._sessions.guardar(sesion)
 
-        await self._paso9_resumen(update, sesion)
+        await self._paso9_exterior_iniciar(update, sesion)
 
     # ------------------------------------------------------------------
-    # PASO 9 — Resumen + solicitud ZIP
+    # PASO 9 — Activos / ingresos en el exterior
     # ------------------------------------------------------------------
-    async def _paso9_resumen(self, update: Update, sesion: SesionUsuario):
+    async def _paso9_exterior_iniciar(self, update: Update, sesion: SesionUsuario):
+        sesion.estado          = EstadoBot.PREGUNTA_EXTERIOR
+        sesion.paso_actual     = 9
+        sesion.ultima_pregunta = "p9_exterior"
+        self._sessions.guardar(sesion)
+        await update.message.reply_text(MSG_P9_EXTERIOR)
+
+    async def _paso9_exterior(
+        self, update: Update, sesion: SesionUsuario, texto: str
+    ):
+        if any(w in texto.upper() for w in ["SI", "SÍ", "S"]):
+            sesion.datos_confirmados["tiene_exterior"] = True
+            self._sessions.guardar(sesion)
+            # Preguntar cuántos documentos
+            sesion.estado          = EstadoBot.PREGUNTA_EXTERIOR_CUANTOS
+            sesion.ultima_pregunta = "p9_exterior_cuantos"
+            self._sessions.guardar(sesion)
+            await update.message.reply_text(MSG_P9_EXTERIOR_CUANTOS)
+        else:
+            sesion.datos_confirmados["tiene_exterior"] = False
+            self._sessions.guardar(sesion)
+            await self._paso10_resumen(update, sesion)
+
+    async def _paso9_exterior_cuantos(
+        self, update: Update, sesion: SesionUsuario, texto: str
+    ):
+        try:
+            n = int(texto.strip())
+            if n < 1 or n > 20:
+                raise ValueError
+        except ValueError:
+            await update.message.reply_text(
+                "Por favor responde con un número entre 1 y 20."
+            )
+            return
+
+        sesion.datos_confirmados["exterior_total"]   = n
+        sesion.datos_confirmados["exterior_actual"]  = 0
+        sesion.datos_confirmados["exterior_docs"]    = []
+        self._sessions.guardar(sesion)
+        await self._paso9_exterior_pedir_tipo(update, sesion)
+
+    async def _paso9_exterior_pedir_tipo(
+        self, update: Update, sesion: SesionUsuario
+    ):
+        actual = sesion.datos_confirmados["exterior_actual"] + 1
+        total  = sesion.datos_confirmados["exterior_total"]
+        sesion.datos_confirmados["exterior_actual"] = actual
+        sesion.estado          = EstadoBot.PREGUNTA_EXTERIOR_TIPO
+        sesion.ultima_pregunta = "p9_exterior_tipo"
+        self._sessions.guardar(sesion)
+        await update.message.reply_text(
+            MSG_P9_EXTERIOR_TIPO.format(i=actual, total=total)
+        )
+
+    async def _paso9_exterior_tipo(
+        self, update: Update, sesion: SesionUsuario, texto: str
+    ):
+        texto_up = texto.upper().strip()
+        actual   = sesion.datos_confirmados["exterior_actual"]
+        total    = sesion.datos_confirmados["exterior_total"]
+
+        if "BANCO" in texto_up:
+            tipo          = "banco"
+            contadores    = sesion.datos_confirmados.get("exterior_banco_count", 0) + 1
+            sesion.datos_confirmados["exterior_banco_count"] = contadores
+            nombre_archivo = f"certificado_exterior_banco_{contadores}.pdf"
+        elif "BROKER" in texto_up or "INVERSION" in texto_up or "INVERSIÓN" in texto_up:
+            tipo          = "broker"
+            contadores    = sesion.datos_confirmados.get("exterior_broker_count", 0) + 1
+            sesion.datos_confirmados["exterior_broker_count"] = contadores
+            nombre_archivo = f"certificado_exterior_broker_{contadores}.pdf"
+        else:
+            await update.message.reply_text(
+                "No entendi. Por favor responde BANCO o BROKER."
+            )
+            return
+
+        # Guardar el doc
+        docs = sesion.datos_confirmados.get("exterior_docs", [])
+        docs.append({"tipo": tipo, "archivo": nombre_archivo})
+        sesion.datos_confirmados["exterior_docs"] = docs
+
+        # Agregar a obligatorios extras
+        emoji = "🏦" if tipo == "banco" else "📊"
+        docs_obligatorios_extra = sesion.datos_confirmados.get("docs_obligatorios_extra", [])
+        docs_obligatorios_extra.append((emoji, nombre_archivo))
+        sesion.datos_confirmados["docs_obligatorios_extra"] = docs_obligatorios_extra
+        self._sessions.guardar(sesion)
+
+        # Informar el nombre al usuario
+        await update.message.reply_text(
+            MSG_P9_EXTERIOR_NOMBRE.format(
+                nombre_archivo=nombre_archivo,
+                paso_zip=PASO_ZIP,
+            )
+        )
+
+        # ¿Hay más documentos?
+        if actual < total:
+            await self._paso9_exterior_pedir_tipo(update, sesion)
+        else:
+            await self._paso10_resumen(update, sesion)
+
+    # ------------------------------------------------------------------
+    # PASO 10 — Resumen + solicitud ZIP
+    # ------------------------------------------------------------------
+    async def _paso10_resumen(self, update: Update, sesion: SesionUsuario):
         r = sesion.resumen_exogena
 
         # Obligatorios: empleadores y entidades financieras de la exogena
@@ -589,14 +698,14 @@ class BotHandler:
         )
 
         sesion.estado          = EstadoBot.ESPERANDO_ZIP
-        sesion.paso_actual     = 9
+        sesion.paso_actual     = 10
         sesion.ultima_pregunta = ""
         self._sessions.guardar(sesion)
 
         await update.message.reply_text(mensaje)
 
     # ------------------------------------------------------------------
-    # PASO 9b — Recibir el ZIP
+    # PASO 10b — Recibir el ZIP
     # ------------------------------------------------------------------
     async def _paso9_recibir_zip(
         self, update: Update, sesion: SesionUsuario, ruta: str
@@ -1012,6 +1121,12 @@ class BotHandler:
             await self._paso7_pensiones_vol(update, sesion, texto)
         elif ultima == "p8_icetex":
             await self._paso8_icetex(update, sesion, texto)
+        elif ultima == "p9_exterior":
+            await self._paso9_exterior(update, sesion, texto)
+        elif ultima == "p9_exterior_cuantos":
+            await self._paso9_exterior_cuantos(update, sesion, texto)
+        elif ultima == "p9_exterior_tipo":
+            await self._paso9_exterior_tipo(update, sesion, texto)
         elif ultima and ultima.startswith("confirmar_doc_"):
             await self._paso10_confirmar(update, sesion, texto)
         else:
@@ -1126,6 +1241,16 @@ class BotHandler:
         pensiones_vol_gravadas = 0.0
         saldo_patrimonio      = 0.0
 
+        # Acumuladores para el exterior
+        exterior_patrimonio   = 0.0   # cas29 — saldos al 31-dic convertidos a COP
+        exterior_ingresos_cap = 0.0   # c58  — intereses banco exterior
+        exterior_dividendos   = 0.0   # c109 — dividendos broker exterior
+        exterior_retencion    = 0.0   # c122 — impuesto pagado en exterior (descuento)
+
+        # TRM: promedio anual para ingresos, cierre 31-dic para patrimonio
+        trm_promedio = self._obtener_trm_promedio(ANNO_GRAVABLE)
+        trm_cierre   = self._obtener_trm_cierre(ANNO_GRAVABLE)
+
         for d in doc:
             datos = d.get("datos_extraidos", {})
             tipo  = d.get("tipo_detectado", "")
@@ -1144,13 +1269,11 @@ class BotHandler:
                 )
 
             elif tipo == "certificado_pensiones_voluntarias":
-                # Si el plazo de permanencia es < 10 años, los retiros son gravados
                 anos_perm = datos.get("anos_permanencia", 0) or 0
                 retiros   = datos.get("valor_retiros", 0.0) or 0.0
                 if retiros > 0 and anos_perm < FPV_PLAZO_MINIMO_AÑOS:
                     pensiones_vol_gravadas += retiros
                 else:
-                    # Sin retiros o con plazo cumplido → exento, igual que AFC
                     aportes_afc_fpv += (datos.get("total_aportes", 0.0) or 0.0)
 
             elif tipo == "certificado_icetex":
@@ -1158,6 +1281,31 @@ class BotHandler:
 
             elif tipo == "certificado_rendimientos":
                 saldo_patrimonio += datos.get("saldo_31_diciembre", 0.0) or 0.0
+
+            elif tipo == "certificado_exterior_banco":
+                # Intereses → c58 rentas de capital (TRM promedio)
+                # Saldo      → c29 patrimonio (TRM cierre)
+                moneda   = (datos.get("moneda") or "USD").upper()
+                trm_p    = trm_promedio.get(moneda, trm_promedio.get("USD", 4_000.0))
+                trm_c    = trm_cierre.get(moneda, trm_cierre.get("USD", 4_000.0))
+                intereses = (datos.get("intereses_generados") or 0.0) * trm_p
+                saldo     = (datos.get("saldo_31_diciembre") or 0.0) * trm_c
+                exterior_ingresos_cap += intereses
+                exterior_patrimonio   += saldo
+
+            elif tipo == "certificado_exterior_broker":
+                # Dividendos → c109 (TRM promedio)
+                # Retención  → c122 descuento tributario (TRM promedio)
+                # Saldo      → c29 patrimonio (TRM cierre)
+                moneda   = (datos.get("moneda") or "USD").upper()
+                trm_p    = trm_promedio.get(moneda, trm_promedio.get("USD", 4_000.0))
+                trm_c    = trm_cierre.get(moneda, trm_cierre.get("USD", 4_000.0))
+                ingresos  = (datos.get("ingreso_bruto") or 0.0) * trm_p
+                retencion = (datos.get("retencion_pagada") or 0.0) * trm_p
+                saldo     = (datos.get("saldo_portafolio_31_diciembre") or 0.0) * trm_c
+                exterior_dividendos += ingresos
+                exterior_retencion  += retencion
+                exterior_patrimonio += saldo
 
         # Topes legales
         intereses_vivienda = min(intereses_vivienda, INTERESES_VIVIENDA_COP)
@@ -1215,7 +1363,7 @@ class BotHandler:
         c90 = max(0.0, c74)
         c43 = r.ingresos_no_laborales_trabajo
         c57 = max(0.0, c43 - r.ingresos_no_const)
-        c58 = r.ingresos_capital
+        c58 = r.ingresos_capital + exterior_ingresos_cap
         c73 = max(0.0, c58)
 
         # cas91 formulario = renta liquida cedula general (c41+c42+c57+c73+c90)
@@ -1241,6 +1389,8 @@ class BotHandler:
         cas103 = max(0.0, cas99 - cas102)
 
         c100 = r.dividendos
+        c109 = exterior_dividendos    # dividendos y participaciones del exterior
+        c122 = exterior_retencion     # impuesto pagado en exterior (descuento tributario)
 
         # Impuesto: base = c93 (cedula general) + cas103 (pensiones)
         base_uvt_gral     = c93 / UVT
@@ -1258,7 +1408,7 @@ class BotHandler:
         saldo = c121 - total_ret
 
         return {
-            "c29_patrimonio_bruto":         r.saldos_cuentas + r.inversiones + r.otros_activos + saldo_patrimonio,
+            "c29_patrimonio_bruto":         r.saldos_cuentas + r.inversiones + r.otros_activos + saldo_patrimonio + exterior_patrimonio,
             "c30_deudas":                   float(dat.get("deudas", 0)),
             "c32_ing_laborales":            c32,
             "c33_no_constitutivos":         c33,
@@ -1279,6 +1429,7 @@ class BotHandler:
             "c43_ing_no_lab_trab":          c43,
             "c57_renta_liq_no_lab_trab":    c57,
             "c58_ing_capital":              c58,
+            "c58_det_exterior":             exterior_ingresos_cap,
             "c73_renta_liq_capital":        c73,
             "c74_ing_no_lab":               c74,
             "c74_det_pensiones_vol_grav":   pensiones_vol_gravadas,
@@ -1291,6 +1442,8 @@ class BotHandler:
             "cas102_exenta_pension":        cas102,
             "cas103_renta_grav_pension":    cas103,
             "c100_dividendos":              c100,
+            "c109_dividendos_exterior":     c109,
+            "c122_impuesto_exterior":       c122,
             "impuesto_cedula_gral":         impuesto_gral,
             "impuesto_pensiones":           impuesto_pensiones,
             "c121_total_impuesto":          c121,
@@ -1312,6 +1465,97 @@ class BotHandler:
             if desde <= base_uvt < hasta:
                 return (imp_base + (base_uvt - desde) * tarifa) * UVT
         return 0.0
+
+    def _obtener_trm_promedio(self, anno: int) -> dict:
+        """
+        Consulta la TRM promedio anual desde el Banco de la Republica (banrep.gov.co).
+        Retorna dict {moneda: trm_cop}, ej: {"USD": 4234.56, "EUR": 4502.0}
+        Si la consulta falla, usa valores de fallback razonables.
+        """
+        import httpx
+        trm = {}
+        # Banco de la Republica — series estadisticas TRM promedio anual
+        # Serie TRM USD: 1.1.USD.SPOT.PROMEDIO (promedio del año)
+        try:
+            url = (
+                f"https://totoro.banrep.gov.co/analytics/saw.dll?GetChartResults"
+                f"&Action=Navigate&P0=1&P1=last:1&P2=1&P4=1&P3="
+                f"&P5={anno}%3A{anno}"
+            )
+            # Alternativa mas simple: usar el endpoint oficial de series
+            url_series = (
+                "https://www.banrep.gov.co/es/estadisticas/series-estadisticas"
+                "/tasas-cambio"
+            )
+            # Endpoint JSON del BanRep para TRM
+            url_api = (
+                f"https://totoro.banrep.gov.co/analytics/saw.dll?"
+                f"Go&Path=/shared/Series Estadisticas BanRep"
+                f"/1. Tasa de cambio y reservas internacionales"
+                f"/1.1 Tasa Representativa del Mercado (TRM)"
+            )
+            # Usamos el endpoint mas directo del BanRep
+            resp = httpx.get(
+                "https://www.banrep.gov.co/es/-/series-estadisticas-v1/get-data",
+                params={
+                    "seriesID":  "1.1.TRM.E",
+                    "startDate": f"{anno}-01-01",
+                    "endDate":   f"{anno}-12-31",
+                    "format":    "json",
+                },
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                valores = [v["valor"] for v in data.get("data", []) if v.get("valor")]
+                if valores:
+                    trm["USD"] = sum(valores) / len(valores)
+        except Exception as e:
+            logger.warning(f"No se pudo obtener TRM promedio del BanRep: {e}")
+
+        # Fallback: valores historicos razonables si la API falla
+        if "USD" not in trm:
+            fallback = {2024: 4_122.0, 2025: 4_350.0, 2026: 4_500.0}
+            trm["USD"] = fallback.get(anno, 4_300.0)
+            logger.info(f"Usando TRM promedio USD fallback para {anno}: {trm['USD']}")
+
+        # EUR aproximado (suele ser ~1.08x el USD)
+        trm.setdefault("EUR", round(trm["USD"] * 1.08, 0))
+        return trm
+
+    def _obtener_trm_cierre(self, anno: int) -> dict:
+        """
+        Consulta la TRM del 31 de diciembre del año gravable.
+        Si falla, usa fallback.
+        """
+        import httpx
+        trm = {}
+        try:
+            resp = httpx.get(
+                "https://www.banrep.gov.co/es/-/series-estadisticas-v1/get-data",
+                params={
+                    "seriesID":  "1.1.TRM.E",
+                    "startDate": f"{anno}-12-31",
+                    "endDate":   f"{anno}-12-31",
+                    "format":    "json",
+                },
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                valores = [v["valor"] for v in data.get("data", []) if v.get("valor")]
+                if valores:
+                    trm["USD"] = valores[-1]
+        except Exception as e:
+            logger.warning(f"No se pudo obtener TRM cierre del BanRep: {e}")
+
+        if "USD" not in trm:
+            fallback = {2024: 4_386.0, 2025: 4_450.0, 2026: 4_550.0}
+            trm["USD"] = fallback.get(anno, 4_400.0)
+            logger.info(f"Usando TRM cierre USD fallback para {anno}: {trm['USD']}")
+
+        trm.setdefault("EUR", round(trm["USD"] * 1.08, 0))
+        return trm
 
     # ------------------------------------------------------------------
     # Excel
