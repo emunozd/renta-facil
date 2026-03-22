@@ -488,11 +488,12 @@ class BotHandler:
         # no preguntar — ya lo sabemos
         if getattr(r, "tiene_pensiones_vol_en_exogena", False):
             sesion.datos_confirmados["tiene_pensiones_voluntarias"] = True
-            # Usar el nombre real del fondo detectado en la exogena
+            # Usar el nombre real del fondo detectado en la exogena, truncado a 40 chars
+            from config.constants import _nombre_entidad_corto
             nombre_fondo = getattr(r, "nombre_fondo_pension_vol", "") or "NOMBRE_FONDO"
             nombre_archivo = (
                 "certificado_pensiones_voluntarias_"
-                + nombre_fondo.upper().replace(" ", "_")
+                + _nombre_entidad_corto(nombre_fondo)
                 + ".pdf"
             )
             # Va a obligatorios — la DIAN ya lo reportó, no es opcional

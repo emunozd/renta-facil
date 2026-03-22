@@ -270,6 +270,26 @@ MSG_P8_SI = (
 )
 
 
+def _nombre_entidad_corto(nombre: str, limite: int = 70) -> str:
+    """
+    Convierte un nombre de entidad en un token apto para nombre de archivo,
+    truncando sin cortar palabras a la mitad si supera el limite de caracteres.
+
+    Ejemplo con limite=40:
+      'SCOTIABANK COLPATRIA S.A. Y PODRA UTILIZAR...' → 'SCOTIABANK_COLPATRIA_S.A._Y_PODRA'
+      'BANCO DAVIVIENDA S.A.'                         → 'BANCO_DAVIVIENDA_S.A.'  (sin truncar)
+    """
+    token = nombre.upper().replace(" ", "_")
+    if len(token) <= limite:
+        return token
+    # Truncar sin cortar a mitad de palabra
+    recortado = token[:limite]
+    ultimo_sep = recortado.rfind("_")
+    if ultimo_sep > 0:
+        recortado = recortado[:ultimo_sep]
+    return recortado
+
+
 def msg_resumen_zip(
     pagadores_laborales: list,
     entidades_financieras: list,
@@ -297,19 +317,11 @@ def msg_resumen_zip(
     ]
 
     for empleador in pagadores_laborales:
-        nombre_archivo = (
-            "certificado_ingresos_"
-            + empleador.upper().replace(" ", "_")
-            + ".pdf"
-        )
+        nombre_archivo = "certificado_ingresos_" + _nombre_entidad_corto(empleador) + ".pdf"
         lineas.append(f"📄 {nombre_archivo}\n")
 
     for entidad in entidades_financieras:
-        nombre_archivo = (
-            "certificado_rendimientos_"
-            + entidad.upper().replace(" ", "_")
-            + ".pdf"
-        )
+        nombre_archivo = "certificado_rendimientos_" + _nombre_entidad_corto(entidad) + ".pdf"
         lineas.append(f"🏦 {nombre_archivo}\n")
 
     for emoji, nombre_archivo in (docs_obligatorios_extra or []):
