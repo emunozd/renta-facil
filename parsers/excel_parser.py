@@ -184,6 +184,7 @@ class ExogenaParser(IExogenaParser):
             "detalle":      self._idx_col(headers, ["detalle"]),
             "valor":        self._idx_col(headers, ["valor"]),
             "uso":          self._idx_col(headers, ["uso declaración sugerida", "uso declaracion sugerida", "uso"]),
+            "info":         self._idx_col(headers, ["información adicional", "informacion adicional", "información  adicional"]),
         }
 
         # Extraer metadatos del declarante de las filas anteriores al header
@@ -217,6 +218,14 @@ class ExogenaParser(IExogenaParser):
             # Determinar campo destino a partir del codigo R{n} en 'Uso'
             campo = self._campo_desde_uso(uso)
 
+            # Detectar AFC y pensiones voluntarias por 'Tipo de Aporte' en Info Adicional
+            # Es el indicador estructural de la DIAN — no depende de nombres de entidades
+            info = str(row[col["info"]] if col.get("info") is not None and col["info"] < len(row) else "").strip()
+            if "Tipo de Aporte: *3*" in info:  # *3* = AFC
+                resultado.tiene_afc_en_exogena = True
+            if "Tipo de Aporte: *2*" in info:  # *2* = Pensión voluntaria / FPV
+                resultado.tiene_pensiones_vol_en_exogena = True
+
             if campo:
                 self._acumular(resultado, campo, valor)
 
@@ -230,16 +239,20 @@ class ExogenaParser(IExogenaParser):
                 if campo == "retenciones_trabajo" and nit_pag and nit_pag in pagadores:
                     pagadores[nit_pag]["retencion"] += valor
 
-                # Registrar entidades financieras
-                if campo in ("ingresos_capital", "retenciones_trabajo") and nit_pag:
+                # Entidades financieras: solo las que tienen R58 (ingresos de capital reales)
+                # R132 solo nunca califica — cualquier empleador tiene retenciones
+                if campo == "ingresos_capital" and nit_pag:
                     entidades[nit_pag] = nom_pag
 
         resultado.pagadores = [
-            {"nombre": v["nombre"], "valor": v["valor"], "retencion": 0.0, "tipo": v["tipo"]}
+            {"nombre": v["nombre"], "valor": v["valor"], "retencion": v["retencion"], "tipo": v["tipo"]}
             for v in pagadores.values() if v["valor"] > 0
         ]
+        # Excluir de entidades financieras los que ya son pagadores laborales
+        nits_laborales = {str(p.get("nit", "")) for p in resultado.pagadores}
         resultado.entidades_financieras = [
-            {"nombre": nom} for nom in entidades.values()
+            {"nombre": nom} for nit, nom in entidades.items()
+            if nit not in nits_laborales
         ]
 
     def _campo_desde_uso(self, uso: str) -> Optional[str]:

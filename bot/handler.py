@@ -440,6 +440,16 @@ class BotHandler:
     # PASO 6 — AFC / FPV
     # ------------------------------------------------------------------
     async def _paso6_iniciar(self, update: Update, sesion: SesionUsuario):
+        r = sesion.resumen_exogena
+
+        # Si AFC ya aparece en la exogena, no preguntar — ya lo tenemos
+        if getattr(r, "tiene_afc_en_exogena", False):
+            sesion.datos_confirmados["tiene_afc_fpv"] = True
+            # El certificado ya viene en el ZIP del empleador — no pedir aparte
+            self._sessions.guardar(sesion)
+            await self._paso7_iniciar(update, sesion)
+            return
+
         sesion.estado          = EstadoBot.PREGUNTA_AFC
         sesion.paso_actual     = 6
         sesion.ultima_pregunta = "p6_afc"
@@ -472,6 +482,21 @@ class BotHandler:
     # PASO 7 — Pensiones voluntarias
     # ------------------------------------------------------------------
     async def _paso7_iniciar(self, update: Update, sesion: SesionUsuario):
+        r = sesion.resumen_exogena
+
+        # Si pensiones voluntarias ya aparece en la exogena (Tipo de Aporte: *2*),
+        # no preguntar — ya lo sabemos
+        if getattr(r, "tiene_pensiones_vol_en_exogena", False):
+            sesion.datos_confirmados["tiene_pensiones_voluntarias"] = True
+            docs_opcionales = sesion.datos_confirmados.get("docs_opcionales", [])
+            docs_opcionales.append(
+                ("📈", "certificado_pensiones_voluntarias_NOMBRE_FONDO.pdf  (detectado en exogena)")
+            )
+            sesion.datos_confirmados["docs_opcionales"] = docs_opcionales
+            self._sessions.guardar(sesion)
+            await self._paso8_iniciar(update, sesion)
+            return
+
         sesion.estado          = EstadoBot.PREGUNTA_PENSIONES_VOL
         sesion.paso_actual     = 7
         sesion.ultima_pregunta = "p7_pensiones_vol"

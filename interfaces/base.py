@@ -57,6 +57,10 @@ class ResumenExogena:
     # GMF reportado por bancos
     gmf_pagado: float = 0.0
 
+    # Detectado directamente en la exogena — evita preguntas redundantes en el flujo
+    tiene_afc_en_exogena: bool = False
+    tiene_pensiones_vol_en_exogena: bool = False
+
     # Errores de parseo (no fatales)
     advertencias: list = field(default_factory=list)
 
