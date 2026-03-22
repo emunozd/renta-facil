@@ -2,7 +2,7 @@ services:
   renta-facil:
     build: .
     container_name: renta-facil
-    restart: unless-stopped
+    restart: no
 
     # El contenedor necesita llegar a tu Qwen local en el host
     # extra_hosts mapea "host.docker.internal" → IP del host (funciona en Linux)

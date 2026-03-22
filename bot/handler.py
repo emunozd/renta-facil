@@ -488,11 +488,17 @@ class BotHandler:
         # no preguntar — ya lo sabemos
         if getattr(r, "tiene_pensiones_vol_en_exogena", False):
             sesion.datos_confirmados["tiene_pensiones_voluntarias"] = True
-            docs_opcionales = sesion.datos_confirmados.get("docs_opcionales", [])
-            docs_opcionales.append(
-                ("📈", "certificado_pensiones_voluntarias_NOMBRE_FONDO.pdf  (detectado en exogena)")
+            # Usar el nombre real del fondo detectado en la exogena
+            nombre_fondo = getattr(r, "nombre_fondo_pension_vol", "") or "NOMBRE_FONDO"
+            nombre_archivo = (
+                "certificado_pensiones_voluntarias_"
+                + nombre_fondo.upper().replace(" ", "_")
+                + ".pdf"
             )
-            sesion.datos_confirmados["docs_opcionales"] = docs_opcionales
+            # Va a obligatorios — la DIAN ya lo reportó, no es opcional
+            docs_obligatorios_extra = sesion.datos_confirmados.get("docs_obligatorios_extra", [])
+            docs_obligatorios_extra.append(("📈", nombre_archivo))
+            sesion.datos_confirmados["docs_obligatorios_extra"] = docs_obligatorios_extra
             self._sessions.guardar(sesion)
             await self._paso8_iniciar(update, sesion)
             return
@@ -571,12 +577,14 @@ class BotHandler:
         ]
 
         # Opcionales: los que el usuario confirmo en pasos 4-8
-        docs_opcionales = sesion.datos_confirmados.get("docs_opcionales", [])
+        docs_opcionales         = sesion.datos_confirmados.get("docs_opcionales", [])
+        docs_obligatorios_extra = sesion.datos_confirmados.get("docs_obligatorios_extra", [])
 
         mensaje = msg_resumen_zip(
             pagadores_laborales,
             entidades_financieras,
             docs_opcionales,
+            docs_obligatorios_extra,
         )
 
         sesion.estado          = EstadoBot.ESPERANDO_ZIP

@@ -192,8 +192,9 @@ class ExogenaParser(IExogenaParser):
         resultado.nit_usuario    = nit
         resultado.nombre_usuario = nombre
 
-        pagadores  = {}
-        entidades  = {}
+        pagadores       = {}
+        entidades       = {}
+        nits_pension_vol = set()  # NITs con Tipo de Aporte: *2* — fondos voluntarios
 
         for row in rows[header_idx + 1:]:
             if not row or all(v is None for v in row):
@@ -215,9 +216,6 @@ class ExogenaParser(IExogenaParser):
             if self._es_fila_resumen(uso, detalle):
                 continue
 
-            # Determinar campo destino a partir del codigo R{n} en 'Uso'
-            campo = self._campo_desde_uso(uso)
-
             # Detectar AFC y pensiones voluntarias por 'Tipo de Aporte' en Info Adicional
             # Es el indicador estructural de la DIAN — no depende de nombres de entidades
             info = str(row[col["info"]] if col.get("info") is not None and col["info"] < len(row) else "").strip()
@@ -225,6 +223,11 @@ class ExogenaParser(IExogenaParser):
                 resultado.tiene_afc_en_exogena = True
             if "Tipo de Aporte: *2*" in info:  # *2* = Pensión voluntaria / FPV
                 resultado.tiene_pensiones_vol_en_exogena = True
+                if nit_pag:
+                    nits_pension_vol.add(nit_pag)
+
+            # Determinar campo destino a partir del codigo R{n} en 'Uso'
+            campo = self._campo_desde_uso(uso)
 
             if campo:
                 self._acumular(resultado, campo, valor)
@@ -248,11 +251,18 @@ class ExogenaParser(IExogenaParser):
             {"nombre": v["nombre"], "valor": v["valor"], "retencion": v["retencion"], "tipo": v["tipo"]}
             for v in pagadores.values() if v["valor"] > 0
         ]
-        # Excluir de entidades financieras los que ya son pagadores laborales
+
+        # Guardar nombre del fondo de pensiones voluntarias para usarlo en el ZIP
+        resultado.nombre_fondo_pension_vol = next(
+            (entidades[nit] for nit in nits_pension_vol if nit in entidades), ""
+        )
+
+        # Excluir de entidades financieras: pagadores laborales y fondos voluntarios
         nits_laborales = {str(p.get("nit", "")) for p in resultado.pagadores}
+        nits_excluir   = nits_laborales | nits_pension_vol
         resultado.entidades_financieras = [
             {"nombre": nom} for nit, nom in entidades.items()
-            if nit not in nits_laborales
+            if nit not in nits_excluir
         ]
 
     def _campo_desde_uso(self, uso: str) -> Optional[str]:

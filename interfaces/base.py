@@ -60,6 +60,7 @@ class ResumenExogena:
     # Detectado directamente en la exogena — evita preguntas redundantes en el flujo
     tiene_afc_en_exogena: bool = False
     tiene_pensiones_vol_en_exogena: bool = False
+    nombre_fondo_pension_vol: str = ""  # nombre real del fondo detectado en exogena
 
     # Errores de parseo (no fatales)
     advertencias: list = field(default_factory=list)

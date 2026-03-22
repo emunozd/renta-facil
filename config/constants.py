@@ -132,6 +132,7 @@ ENTIDADES_FINANCIERAS = [
     "COLFONDOS", "OLD MUTUAL", "SKANDIA",
 ]
 
+# Alias para compatibilidad con excel_parser.py
 ENTIDADES_FINANCIERAS_CONOCIDAS = ENTIDADES_FINANCIERAS
 
 ENTIDADES_FPV = [
@@ -273,14 +274,18 @@ def msg_resumen_zip(
     pagadores_laborales: list,
     entidades_financieras: list,
     docs_opcionales: list,
+    docs_obligatorios_extra: list = None,
 ) -> str:
     """
     Construye el mensaje del Paso 9 (resumen + solicitud del ZIP)
     con los documentos obligatorios y opcionales personalizados.
 
-    pagadores_laborales : lista de nombres de empleadores de la exogena
-    entidades_financieras: lista de nombres de bancos de la exogena
-    docs_opcionales     : lista de tuplas (emoji, descripcion_nombre_archivo)
+    pagadores_laborales     : lista de nombres de empleadores de la exogena
+    entidades_financieras   : lista de nombres de bancos de la exogena
+    docs_obligatorios_extra : lista de tuplas (emoji, nombre_archivo) detectados
+                              automaticamente en la exogena (ej. fondo pension vol)
+    docs_opcionales         : lista de tuplas (emoji, nombre_archivo) confirmados
+                              por el usuario en los pasos anteriores
     """
     lineas = [
         f"Paso {PASO_RESUMEN_ZIP} de {TOTAL_PASOS} — Armar el ZIP con tus documentos\n",
@@ -288,7 +293,7 @@ def msg_resumen_zip(
         "con los siguientes documentos.\n",
         "El nombre de cada archivo importa — usalo exactamente como se indica "
         "para que pueda leerlos correctamente:\n",
-        "OBLIGATORIOS (detectados en tu informacion):\n",
+        "OBLIGATORIOS:\n",
     ]
 
     for empleador in pagadores_laborales:
@@ -297,11 +302,7 @@ def msg_resumen_zip(
             + empleador.upper().replace(" ", "_")
             + ".pdf"
         )
-        lineas.append(
-            f"📄 {nombre_archivo}\n"
-            f"   Como obtenerlo: app o portal de tu empleador\n"
-            f"   -> Certificados -> Declaracion de renta {ANNO_GRAVABLE}\n"
-        )
+        lineas.append(f"📄 {nombre_archivo}\n")
 
     for entidad in entidades_financieras:
         nombre_archivo = (
@@ -309,14 +310,13 @@ def msg_resumen_zip(
             + entidad.upper().replace(" ", "_")
             + ".pdf"
         )
-        lineas.append(
-            f"🏦 {nombre_archivo}\n"
-            f"   Como obtenerlo: app de {entidad}\n"
-            f"   -> Certificados -> Declaracion de renta {ANNO_GRAVABLE}\n"
-        )
+        lineas.append(f"🏦 {nombre_archivo}\n")
+
+    for emoji, nombre_archivo in (docs_obligatorios_extra or []):
+        lineas.append(f"{emoji} {nombre_archivo}\n")
 
     if docs_opcionales:
-        lineas.append("\nOPCIONALES (confirmados en los pasos anteriores):\n")
+        lineas.append("\nOPCIONALES:\n")
         for emoji, descripcion in docs_opcionales:
             lineas.append(f"{emoji} {descripcion}\n")
 
